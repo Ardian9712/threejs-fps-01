@@ -1,0 +1,1 @@
+{"name":"quarryline","version":"0.1.0","private":true,"type":"module","scripts":{"serve":"node tools/serve.mjs","build":"node main.ts"}}

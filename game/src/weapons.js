@@ -1,0 +1,18 @@
+import * as T from 'three';
+import {random,dist} from './core.js';
+import {wallDistance} from './world.js';
+export const guns={pistol:{name:'P9',price:0,mag:12,damage:28,rate:.24,spread:.009,kick:.018,reload:1.4,pellets:1},rifle:{name:'KR-41',price:2700,mag:30,damage:36,rate:.105,spread:.007,kick:.025,reload:2.1,pellets:1},smg:{name:'Wasp-9',price:1500,mag:32,damage:22,rate:.075,spread:.013,kick:.017,reload:1.8,pellets:1},shotgun:{name:'Mauler-12',price:1200,mag:8,damage:15,rate:.85,spread:.068,kick:.07,reload:2.6,pellets:8}};
+export function equip(a,key){a.weapon=key;a.ammo=guns[key].mag;a.reserve=guns[key].mag*4;a.reload=0;}
+export function interruptPlant(s,target){const b=s.bomb;if(!b.planted&&b.user===target.id&&b.progress>0){b.progress=0;b.user=-1;b.cancel=1.8;}}
+export function damage(s,target,amount,attacker,head=false){if(!target.alive)return;interruptPlant(s,target);const absorb=target.armor>0?Math.min(target.armor,amount*.45):0;target.armor-=absorb;target.hp-=amount-absorb;if(target.id===0)s.hurt=.7;if(attacker?.id===0)s.hit=.14;if(target.hp<=0){target.hp=0;target.alive=false;target.deaths++;if(attacker){attacker.kills++;attacker.money=Math.min(16000,attacker.money+300);s.feed.unshift(`${attacker.name}  ${head?'◆':'›'}  ${target.name}`);s.feed.length=Math.min(5,s.feed.length);}if(s.bomb.carrier===target.id){s.bomb.carrier=-1;s.bomb.x=target.x;s.bomb.z=target.z;}}}
+export function reload(a,audio){if(!a.reload&&a.ammo<guns[a.weapon].mag&&a.reserve>0){a.reload=guns[a.weapon].reload;if(a.id===0)audio.sound('reload');}}
+export function updateGun(a,dt){a.cool=Math.max(0,a.cool-dt);a.fire=Math.max(0,a.fire-dt);a.recoil=Math.max(0,a.recoil-dt*.09);if(a.reload>0){a.reload-=dt;if(a.reload<=0){const n=Math.min(guns[a.weapon].mag-a.ammo,a.reserve);a.ammo+=n;a.reserve-=n;}}}
+export function shoot(s,w,a,yaw,pitch,audio,spreadScale=1){const gun=guns[a.weapon];if(!a.alive||a.cool>0||a.reload>0)return;if(a.ammo===0){reload(a,audio);return;}a.ammo--;a.cool=gun.rate;a.fire=.08;const speed=Math.hypot(a.vx,a.vz);a.spread=(gun.spread+speed*.007+a.recoil*.5)*spreadScale;a.recoil=Math.min(.18,a.recoil+gun.kick);s.noise.x=a.x;s.noise.z=a.z;s.noise.team=a.team;s.noise.time=s.time;audio.sound('shot',dist(a,s.player));
+ for(let n=0;n<gun.pellets;n++){const ya=yaw+(random(s)-.5)*a.spread*2,pi=pitch+(random(s)-.5)*a.spread*2,cp=Math.cos(pi),dx=-Math.sin(ya)*cp,dy=Math.sin(pi),dz=-Math.cos(ya)*cp;let length=wallDistance(w,a.x,a.y,a.z,dx,dy,dz,100),victim=null,head=false;
+  for(const b of s.actors){if(!b.alive||b.team===a.team)continue;for(let part=0;part<2;part++){const cy=part===0?b.y-.05:.88,r=part===0?.25:.43,ox=b.x-a.x,oy=cy-a.y,oz=b.z-a.z,t=ox*dx+oy*dy+oz*dz;if(t<0||t>length)continue;const d2=ox*ox+oy*oy+oz*oz-t*t;if(d2<=r*r){const hit=t-Math.sqrt(r*r-d2);if(hit<length){length=hit;victim=b;head=part===0;}}}}
+  if(victim)damage(s,victim,gun.damage*(head?2:1)*(gun.pellets>1?Math.max(.25,1-length*.015):1),a,head);
+  tracer(s,w,a.x,a.y,a.z,a.x+dx*length,a.y+dy*length,a.z+dz*length,a.team);
+ }
+}
+export function tracer(s,w,x,y,z,X,Y,Z,team){let fx=s.fx.find(f=>!f.active);if(!fx){const m=new T.Mesh(new T.CylinderGeometry(.018,.018,1,4),new T.MeshBasicMaterial({color:0xffdd9a}));w.scene.add(m);fx={mesh:m,active:false,life:0};s.fx.push(fx);}fx.active=true;fx.life=.075;fx.mesh.material.color.setHex(team===0?0xffdd9a:0xff8d55);fx.mesh.visible=true;fx.mesh.position.set((x+X)/2,(y+Y)/2,(z+Z)/2);fx.mesh.scale.y=Math.hypot(X-x,Y-y,Z-z);fx.mesh.quaternion.setFromUnitVectors(up,direction.set(X-x,Y-y,Z-z).normalize());}
+const up=new T.Vector3(0,1,0),direction=new T.Vector3();

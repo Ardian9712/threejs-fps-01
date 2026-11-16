@@ -1,0 +1,4 @@
+out/
+out-verify/
+node_modules/
+*.log
